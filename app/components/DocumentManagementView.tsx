@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, FileText, Trash2, Eye, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle, FileCode } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 interface Document {
   id: string;
@@ -44,13 +45,7 @@ export default function DocumentManagementView() {
       setLoading(true);
       setError('');
       
-      let url = `/api/v1/admin/documents?page=${page}&size=${size}&search=${encodeURIComponent(search)}`;
-      if (ownerUid.trim() !== '') {
-        url += `&ownerUid=${encodeURIComponent(ownerUid)}`;
-      }
-
-      const res = await fetch(url);
-      const json = await res.json();
+      const json = await apiService.getAdminDocuments(page, size, search, ownerUid);
       
       if (json.status === 'success') {
         setDocuments(json.data.content);
@@ -75,10 +70,7 @@ export default function DocumentManagementView() {
     if (!deleteDoc) return;
     try {
       setDeleteLoading(true);
-      const res = await fetch(`/api/v1/admin/documents/${deleteDoc.id}`, {
-        method: 'DELETE'
-      });
-      const json = await res.json();
+      const json = await apiService.deleteAdminDocument(deleteDoc.id);
 
       if (json.status === 'success') {
         showToast('Quản trị viên đã cưỡng chế xóa tài liệu thành công!', 'success');

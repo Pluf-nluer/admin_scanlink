@@ -1,38 +1,102 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Lock, Mail, Server, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, Server, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 interface LoginViewProps {
-  onLoginSuccess: (adminEmail: string) => void;
+  onLoginSuccess: (adminEmail: string, adminToken: string) => void;
 }
 
 export default function LoginView({ onLoginSuccess }: LoginViewProps) {
-  const [email, setEmail] = useState('admin@scanlink.vn');
-  const [password, setPassword] = useState('admin123456');
+  const [email, setEmail] = useState('phu921065@gmail.com');
+  const [password, setPassword] = useState('Phu26092k5');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Simulate authentication check
-    setTimeout(() => {
-      if (email === 'admin@scanlink.vn' && password === 'admin123456') {
-        onLoginSuccess(email);
-      } else {
-        setError('Sai tên đăng nhập hoặc mật khẩu quản trị viên.');
-        setLoading(false);
+    // If Firebase API Key is not configured, run in Mock/Bypass mode
+    if (!firebaseApiKey) {
+      setTimeout(() => {
+        if (email === 'phu921065@gmail.com' && password === 'Phu26092k5') {
+          onLoginSuccess(email, 'fb_uid_admin');
+        } else {
+          setError('Chế độ Mock: Sai email hoặc mật khẩu quản trị viên.');
+          setLoading(false);
+        }
+      }, 600);
+      return;
+    }
+
+    // Real Firebase & Backend authentication flow
+    try {
+      // 1. Exchange Email & Password for Firebase ID Token via Google Firebase Auth REST API
+      const firebaseRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            returnSecureToken: true,
+          }),
+        }
+      );
+
+      const firebaseJson = await firebaseRes.json();
+
+      if (!firebaseRes.ok) {
+        throw new Error(firebaseJson.error?.message || 'Lỗi đăng nhập Firebase');
       }
-    }, 800);
+
+      const idToken = firebaseJson.idToken;
+
+      // 2. Validate token with Spring Boot Backend [INT-API-002]
+      const loginResult = await apiService.loginUser(idToken);
+
+      if (loginResult.status !== 'success') {
+        throw new Error(loginResult.message || 'Xác thực tài khoản thất bại');
+      }
+
+      const userRole = loginResult.data?.role;
+      const userActive = loginResult.data?.isActive;
+
+      if (!userActive) {
+        throw new Error('Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động.');
+      }
+
+      // 3. Verify user has ADMIN role
+      if (userRole !== 'ADMIN') {
+        throw new Error('Từ chối truy cập: Tài khoản của bạn không có quyền quản trị viên (ADMIN).');
+      }
+
+      // Success
+      onLoginSuccess(email, idToken);
+    } catch (err: any) {
+      let msg = err.message;
+      if (msg === 'EMAIL_NOT_FOUND' || msg === 'INVALID_PASSWORD') {
+        msg = 'Sai tên đăng nhập hoặc mật khẩu.';
+      } else if (msg === 'USER_DISABLED') {
+        msg = 'Tài khoản này đã bị khóa trong hệ thống Firebase.';
+      }
+      setError(msg);
+      setLoading(false);
+    }
   };
 
   const handleQuickBypass = () => {
     setLoading(true);
     setTimeout(() => {
-      onLoginSuccess('admin@scanlink.vn');
+      onLoginSuccess('phu921065@gmail.com', 'fb_uid_admin');
     }, 400);
   };
 
@@ -66,6 +130,13 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               </div>
             )}
 
+            {!firebaseApiKey && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs font-medium text-amber-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>Đang ở chế độ Mock Bypass (Chưa có Firebase API Key)</span>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Email Quản trị
@@ -77,7 +148,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@scanlink.vn"
+                  placeholder="phu921065@gmail.com"
                   className="w-full rounded-xl border border-slate-800 bg-slate-950/50 py-3 pr-4 pl-10 text-sm text-white placeholder-slate-600 outline-none transition-all focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30"
                 />
               </div>
@@ -129,7 +200,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950/40 py-2.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
           >
             <Server className="h-3.5 w-3.5" />
-            Bypass với Account Admin
+            Bypass với Account Admin Mock
           </button>
         </div>
         

@@ -9,6 +9,7 @@ import DocumentManagementView from './components/DocumentManagementView';
 
 export default function Home() {
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const [adminToken, setAdminToken] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'documents'>('dashboard');
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
@@ -27,13 +28,15 @@ export default function Home() {
     }
 
     const savedEmail = localStorage.getItem('scanlink_admin_email');
+    const savedToken = localStorage.getItem('scanlink_admin_token');
 
     // 2. Gom TẤT CẢ các hàm thay đổi state vào requestAnimationFrame (Bất đồng bộ)
     const id = requestAnimationFrame(() => {
       setMounted(true);
       setDarkMode(isDark);
-      if (savedEmail) {
+      if (savedEmail && savedToken) {
         setAdminEmail(savedEmail);
+        setAdminToken(savedToken);
       }
     });
 
@@ -54,14 +57,18 @@ export default function Home() {
     }
   };
 
-  const handleLoginSuccess = (email: string) => {
+  const handleLoginSuccess = (email: string, token: string) => {
     setAdminEmail(email);
+    setAdminToken(token);
     localStorage.setItem('scanlink_admin_email', email);
+    localStorage.setItem('scanlink_admin_token', token);
   };
 
   const handleLogout = () => {
     setAdminEmail(null);
+    setAdminToken(null);
     localStorage.removeItem('scanlink_admin_email');
+    localStorage.removeItem('scanlink_admin_token');
     localStorage.removeItem('scanlink_users'); // Reset mock db storage state
     localStorage.removeItem('scanlink_docs');
   };
@@ -75,7 +82,7 @@ export default function Home() {
   }
 
   // If not authenticated as Admin, show login screen
-  if (!adminEmail) {
+  if (!adminEmail || !adminToken) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
 

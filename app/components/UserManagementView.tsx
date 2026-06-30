@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, ShieldAlert, CheckCircle, XCircle, Settings, HardDrive, RefreshCw, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 interface User {
   uid: string;
@@ -46,15 +47,14 @@ export default function UserManagementView() {
       setLoading(true);
       setError('');
       
-      let url = `/api/v1/admin/users?page=${page}&size=${size}&search=${encodeURIComponent(search)}`;
+      let activeFilter: boolean | undefined = undefined;
       if (isActiveFilter === 'active') {
-        url += '&isActive=true';
+        activeFilter = true;
       } else if (isActiveFilter === 'inactive') {
-        url += '&isActive=false';
+        activeFilter = false;
       }
 
-      const res = await fetch(url);
-      const json = await res.json();
+      const json = await apiService.getAdminUsers(page, size, search, activeFilter);
       
       if (json.status === 'success') {
         setUsers(json.data.content);
@@ -77,12 +77,7 @@ export default function UserManagementView() {
   // Toggle user active status
   const handleToggleStatus = async (uid: string, currentStatus: boolean) => {
     try {
-      const res = await fetch(`/api/v1/admin/users/${uid}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !currentStatus })
-      });
-      const json = await res.json();
+      const json = await apiService.updateUserStatus(uid, !currentStatus);
       
       if (json.status === 'success') {
         showToast('Cập nhật trạng thái người dùng thành công!', 'success');
@@ -132,12 +127,7 @@ export default function UserManagementView() {
     }
 
     try {
-      const res = await fetch(`/api/v1/admin/users/${selectedUser.uid}/quota`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storageLimitBytes: finalBytes })
-      });
-      const json = await res.json();
+      const json = await apiService.updateUserQuota(selectedUser.uid, finalBytes);
       
       if (json.status === 'success') {
         showToast('Thay đổi hạn mức Quota thành công!', 'success');

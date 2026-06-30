@@ -9,6 +9,7 @@ import {
   Activity,
   AlertCircle
 } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 interface StatsData {
   totalUsers: number;
@@ -52,14 +53,9 @@ export default function DashboardView() {
       setLoading(true);
       setError('');
       
-      const statsRes = await fetch('/api/v1/admin/dashboard/stats');
-      const statsJson = await statsRes.json();
-      
-      const chartsRes = await fetch('/api/v1/admin/dashboard/charts?days=30');
-      const chartsJson = await chartsRes.json();
-      
-      const usersRes = await fetch('/api/v1/admin/users?page=0&size=100');
-      const usersJson = await usersRes.json();
+      const statsJson = await apiService.getAdminStats();
+      const chartsJson = await apiService.getAdminCharts(30);
+      const usersJson = await apiService.getAdminUsers(0, 100);
 
       if (statsJson.status === 'success' && chartsJson.status === 'success') {
         setStats(statsJson.data);
